@@ -1,14 +1,11 @@
-# Copyright (c) 2025 Resemble AI
-# Author: John Meade, Jeremy Hsu
-# MIT License
+# Author: John Meade, Jeremy Hsu (from Resemble AI)
+
 import logging
 import torch
 from dataclasses import dataclass
 from types import MethodType
 
-
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class AlignmentAnalysisResult:
@@ -24,7 +21,6 @@ class AlignmentAnalysisResult:
     complete: bool
     # approximate position in the text token sequence. Can be used for generating online timestamps.
     position: int
-
 
 class AlignmentStreamAnalyzer:
     def __init__(self, tfmr, queue, text_tokens_slice, alignment_layer_idx=9, eos_idx=0):
@@ -71,8 +67,14 @@ class AlignmentStreamAnalyzer:
             - When `output_attentions=True`, `LlamaSdpaAttention.forward` calls `LlamaAttention.forward`.
             - `attn_output` has shape [B, H, T0, T0] for the 0th entry, and [B, H, 1, T0+i] for the rest i-th.
             """
-            step_attention = output[1].cpu() # (B, 16, N, N)
-            self.last_aligned_attn = step_attention[0].mean(0) # (N, N)
+            # step_attention = output[1].cpu() # (B, 16, N, N)
+            # self.last_aligned_attn = step_attention[0].mean(0) # (N, N)
+            if output[1] is not None:
+                step_attention = output[1].cpu() # (B, 16, N, N)
+                self.last_aligned_attn = step_attention[0].mean(0) # (N, N)
+            else:
+                if self.last_aligned_attn is None:
+                    self.last_aligned_attn = torch.zeros(512, 512)
 
         target_layer = tfmr.layers[alignment_layer_idx].self_attn
         hook_handle = target_layer.register_forward_hook(attention_forward_hook)
@@ -102,7 +104,6 @@ class AlignmentStreamAnalyzer:
 
         # TODO: monotonic masking; could have issue b/c spaces are often skipped.
         A_chunk[:, self.curr_frame_pos + 1:] = 0
-
 
         self.alignment = torch.cat((self.alignment, A_chunk), dim=0)
 
