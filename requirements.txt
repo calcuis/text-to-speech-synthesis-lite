@@ -1,0 +1,6 @@
+librosa
+s3tokenizer
+resemble-perth
+conformer
+pkuseg
+pykakasi
